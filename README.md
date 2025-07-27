@@ -61,7 +61,6 @@ Follow these instructions to get a copy of the project up and running on your lo
 1.  **Clone the repository:**
     ```bash
     git clone <your-repository-url>
-    cd ricky_business_tailor_ai_generator_backend
     ```
 
 2.  **Create and activate a virtual environment:**
