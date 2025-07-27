@@ -1,25 +1,18 @@
-# Ricky's Business Tailor AI Generator Backend
 # Social Media Content Generator
 
-This project is the backend for the Business Tailor AI Generator. It's a robust FastAPI application designed to generate tailored business content using the power of OpenAI's large language models, including fine-tuning capabilities.
 ## Performance Results ⚡
 - ✅ 10 posts: 67 seconds (100% success rate)
 - ✅ 50 posts: 4.2 minutes (96% success rate)  
 - ✅ 100 posts: 8.5 minutes (94% success rate)
 
-## ✨ Features
 ## Quick Setup
 
-*   **FastAPI Backend**: Built with the high-performance, easy-to-use FastAPI framework.
-*   **OpenAI Integration**: Leverages the `openai` Python library for advanced AI content generation.
-*   **Fine-Tuning Ready**: Based on the dependencies, it appears to include functionalities for managing fine-tuned models and checkpoints via the OpenAI API.
-### Backend
-```bash
-cd backend
-python -m venv venv
-source venv/bin/activate
-pip install -r requirements.txt
-uvicorn main:app --reload
+### 1. Environment Variables
+Create a `.env` file in the `backend` directory. You can copy `.env.example` to get started.
+```
+DATABASE_URL="postgresql://user:password@localhost/social_media_db"
+OPENAI_API_KEY="your_openai_api_key_here"
+SECRET_KEY="your_super_secret_jwt_key_here"
 ```
 
 ## 🛠️ Tech Stack
@@ -75,14 +68,17 @@ Follow these instructions to get a copy of the project up and running on your lo
         ```bash
         source venv/bin/activate
         ```
-
-3.  **Install dependencies:**
+3. **Database setup:**
+    ```bash
+    psql -U myuser -d social_media_db -a -f schema.sql
+    ```
+4.  **Install dependencies:**
     *(Assuming a `requirements.txt` file exists in your project)*
     ```bash
     pip install -r requirements.txt
     ```
 
-4.  **Set up environment variables:**
+5.  **Set up environment variables:**
     Create a `.env` file in the root directory and add your OpenAI API key. The application will need this to communicate with OpenAI services.
     ```env
     OPENAI_API_KEY="your_openai_api_key_here"
