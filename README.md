@@ -13,7 +13,6 @@ This project is the backend for the Business Tailor AI Generator. It's a robust 
 *   **FastAPI Backend**: Built with the high-performance, easy-to-use FastAPI framework.
 *   **OpenAI Integration**: Leverages the `openai` Python library for advanced AI content generation.
 *   **Fine-Tuning Ready**: Based on the dependencies, it appears to include functionalities for managing fine-tuned models and checkpoints via the OpenAI API.
-*   **Cloud Deployment**: Configured for easy deployment using `fastapi-cloud-cli`.
 ### Backend
 ```bash
 cd backend
@@ -24,13 +23,6 @@ uvicorn main:app --reload
 ```
 
 ## 🛠️ Tech Stack
-### Frontend
-```bash
-cd frontend
-npm install
-npm run dev
-```
-
 *   Python 3.x
 *   FastAPI
 *   Pydantic
