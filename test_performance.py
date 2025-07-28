@@ -78,15 +78,16 @@ def run_perf_test(num_posts: int):
             )
             status_response.raise_for_status()
             status_data = status_response.json()
+            status = status_data['status']
             progress = status_data['progress']
 
             print(
-                f"  -> Status: {status_data['status']}, "
+                f"  -> Status: {status}, "
                 f"Progress: {progress['completed']}/{progress['total']} "
                 f"({progress['percentage']}%), "
                 f"Failed: {progress['failed']}"
             )
-            if status_data['status'].startswith('completed'):
+            if status == 'completed' or status == 'failed':
                 break
             
             time.sleep(5) # Wait 5 seconds between checks
@@ -104,6 +105,6 @@ def run_perf_test(num_posts: int):
 if __name__ == "__main__":
     print("--- ⚠️  Make sure your FastAPI server is running in another terminal! ---")
     print("--- (uvicorn main:app --reload) ---")
-    run_perf_test(10) # Test with 10 posts
-    # run_perf_test(50) # Uncomment to test with 50
+    # run_perf_test(10) # Test with 10 posts
+    run_perf_test(50) # Uncomment to test with 50
     # run_perf_test(100) # Uncomment to test with 100

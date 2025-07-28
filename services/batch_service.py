@@ -47,42 +47,52 @@ class BatchGenerationService:
             caption_result, image_result = results
 
             # 3. Process results and update the post object
-            is_success = True
-            if isinstance(caption_result, Exception):
-                is_success = False
+            caption_failed = isinstance(caption_result, Exception)
+            image_failed = isinstance(image_result, Exception)
+
+            if caption_failed:
                 post.caption = f"Caption generation failed: {caption_result}"
                 print(f"Error generating caption for post '{post.title}': {caption_result}")
             else:
                 post.caption = caption_result
 
-            if isinstance(image_result, Exception):
-                is_success = False
-                post.image_url = None # Keep URL null on failure
+            if image_failed:
+                # Use a placeholder URL on failure for a better frontend experience
+                post.image_url = "https://via.placeholder.com/1024x1024.png?text=Image+Generation+Failed"
                 print(f"Error generating image for post '{post.title}': {image_result}")
             else:
                 post.image_url = image_result
             
             # 4. Finalize status and update batch job counters atomically
-            if is_success:
-                post.generation_status = 'completed'
-                db.query(BatchJob).filter(BatchJob.id == batch_job_id).update(
-                    {'completed_posts': BatchJob.completed_posts + 1}, synchronize_session=False
-                )
-            else:
+            if caption_failed or image_failed:
                 post.generation_status = 'failed'
                 db.query(BatchJob).filter(BatchJob.id == batch_job_id).update(
                     {'failed_posts': BatchJob.failed_posts + 1}, synchronize_session=False
                 )
+            else:
+                post.generation_status = 'completed'
+                db.query(BatchJob).filter(BatchJob.id == batch_job_id).update(
+                    {'completed_posts': BatchJob.completed_posts + 1}, synchronize_session=False
+                )
             db.commit()
 
-        except SQLAlchemyError as e:
-            print(f"Database error for post '{post_data.get('title')}': {e}")
-            db.rollback()
         except Exception as e:
-            print(f"Unexpected error for post '{post_data.get('title')}': {e}")
-            if post and db.is_active:
+            # This block catches ANY exception during the process, including DB errors (SQLAlchemyError).
+            print(f"An error occurred while processing post '{post_data.get('title')}': {e}")
+            if db.is_active:
                 db.rollback()
 
+            # If the post was created in the DB, mark it as failed and store the error.
+            if post and post.id:
+                post.generation_status = 'failed'
+                post.caption = f"Post processing failed: {str(e)[:500]}"
+
+            # CRITICAL: No matter the error, increment the failed counter.
+            # This ensures progress tracking is always accurate.
+            db.query(BatchJob).filter(BatchJob.id == batch_job_id).update(
+                {'failed_posts': BatchJob.failed_posts + 1}, synchronize_session=False
+            )
+            db.commit()
 
     async def process_batch(self, batch_job_id: uuid.UUID, posts_data: List[Dict]):
         """
@@ -113,7 +123,7 @@ class BatchGenerationService:
             db.refresh(batch_job)
 
             if batch_job.failed_posts > 0:
-                batch_job.status = "completed_with_errors"
+                batch_job.status = "failed"
             else:
                 batch_job.status = "completed"
             batch_job.completed_at = datetime.now(timezone.utc)

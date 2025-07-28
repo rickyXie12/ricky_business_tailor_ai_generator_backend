@@ -1,9 +1,9 @@
 # Social Media Content Generator
 
 ## Performance Results using `py test_performance.py`⚡
-- ✅ 10 posts: 39.34 seconds (100% success rate)
-- ✅ 50 posts: 3.35 minutes (100% success rate)  
-- ✅ 100 posts: 6.51 minutes (100% success rate)
+- ✅ 10 posts: 39.81 seconds (100% success rate)
+- ✅ 50 posts: 3.00 minutes (100% success rate)  
+- ✅ 100 posts: 6.28 minutes (100% success rate)
 
 ## Batch Generation Results (testing using frontend)
 
