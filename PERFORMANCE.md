@@ -10,11 +10,11 @@
 
 The system successfully meets and exceeds all performance targets.
 
-| Posts | Time          | Success Rate | Rate (posts/min) | Notes                   |
-|-------|---------------|--------------|------------------|-------------------------|
-| 10    | 40 seconds    | 100%         | ~15              | ✅ Meets < 90s target   |
-| 50    | 3.10 minutes  | 100%         | ~16.1            | ✅ Meets < 5m target    |
-| 100   | 6.30 minutes  | 100%         | ~15.9            | ✅ Meets < 10m target   |
+| Posts | Time          | Success Rate | Rate (posts/min) | Notes                   |images
+|-------|---------------|--------------|------------------|-------------------------|----------------------------|
+| 10    | 42 seconds    | 100%         | ~15              | ✅ Meets < 90s target   |https://tinyurl.com/3e2s3ppk
+| 50    | 3.33 minutes  | 100%         | ~16.1            | ✅ Meets < 5m target    |https://tinyurl.com/3r9c977e|
+| 100   | 6.34 minutes  | 100%         | ~15.9            | ✅ Meets < 10m target   |https://tinyurl.com/5dsajjnf|
 
 ## Optimization Strategies
 
