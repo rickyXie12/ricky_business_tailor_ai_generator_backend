@@ -13,20 +13,21 @@ from services.openai_service import openai_service
 class BatchGenerationService:
     def __init__(self):
         # Concurrency limits for OpenAI API calls.
-        # DALL-E 3 often has stricter rate limits, so its concurrency is lower.
-        self.caption_concurrent = 10
-        self.image_concurrent = 5
+        self.max_concurrent = 5
 
-    async def process_single_post(self, post_data: Dict, campaign_id: uuid.UUID, batch_job_id: uuid.UUID,
-                                  caption_semaphore: Semaphore, image_semaphore: Semaphore):
+    async def process_single_post(
+        self, 
+        db: Session,  # The single DB session is now passed in
+        post_data: Dict, 
+        campaign_id: uuid.UUID, 
+        batch_job_id: uuid.UUID
+    ):
         """
-        Processes a single post: creates a DB record, generates content concurrently,
-        and updates the status in a single, isolated database session.
+        Processes a single post using the shared database session.
         """
-        db = SessionLocal()
         post = None
         try:
-            # 1. Create the post record to get an ID and set initial status
+            # 1. Create the post record
             post = CampaignPost(
                 campaign_id=campaign_id,
                 batch_job_id=batch_job_id,
@@ -39,16 +40,10 @@ class BatchGenerationService:
             db.commit()
             db.refresh(post)
 
-            # 2. Generate content in parallel, relying on the service's retry logic
-            async def get_caption():
-                async with caption_semaphore:
-                    return await openai_service.generate_caption(post_data)
-
-            async def get_image():
-                async with image_semaphore:
-                    return await openai_service.generate_image(post_data)
-
-            results = await asyncio.gather(get_caption(), get_image(), return_exceptions=True)
+            # 2. Generate content concurrently
+            caption_task = openai_service.generate_caption(post_data)
+            image_task = openai_service.generate_image(post_data)
+            results = await asyncio.gather(caption_task, image_task, return_exceptions=True)
             caption_result, image_result = results
 
             # 3. Process results and update the post object
@@ -62,12 +57,12 @@ class BatchGenerationService:
 
             if isinstance(image_result, Exception):
                 is_success = False
-                post.image_url = None
+                post.image_url = None # Keep URL null on failure
                 print(f"Error generating image for post '{post.title}': {image_result}")
             else:
                 post.image_url = image_result
-
-            # 4. Finalize status and update batch job counters in one transaction
+            
+            # 4. Finalize status and update batch job counters atomically
             if is_success:
                 post.generation_status = 'completed'
                 db.query(BatchJob).filter(BatchJob.id == batch_job_id).update(
@@ -79,23 +74,21 @@ class BatchGenerationService:
                     {'failed_posts': BatchJob.failed_posts + 1}, synchronize_session=False
                 )
             db.commit()
+
         except SQLAlchemyError as e:
-            print(f"Database error processing post '{post_data.get('title')}': {e}")
+            print(f"Database error for post '{post_data.get('title')}': {e}")
             db.rollback()
         except Exception as e:
-            print(f"Unexpected error processing post '{post_data.get('title')}': {e}")
+            print(f"Unexpected error for post '{post_data.get('title')}': {e}")
             if post and db.is_active:
                 db.rollback()
-                post.generation_status = 'failed'
-                db.query(BatchJob).filter(BatchJob.id == batch_job_id).update(
-                    {'failed_posts': BatchJob.failed_posts + 1}, synchronize_session=False
-                )
-                db.commit()
-        finally:
-            db.close()
+
 
     async def process_batch(self, batch_job_id: uuid.UUID, posts_data: List[Dict]):
-        db = SessionLocal()
+        """
+        Main batch processing function. Manages a SINGLE database session for all tasks.
+        """
+        db = SessionLocal() # Create ONE session for the entire batch
         try:
             batch_job = db.query(BatchJob).filter(BatchJob.id == batch_job_id).first()
             if not batch_job:
@@ -106,22 +99,21 @@ class BatchGenerationService:
             batch_job.started_at = datetime.now(timezone.utc)
             db.commit()
 
-            caption_semaphore = Semaphore(self.caption_concurrent)
-            image_semaphore = Semaphore(self.image_concurrent)
+            semaphore = Semaphore(self.max_concurrent)
 
             async def task_wrapper(post_data: Dict):
-                await self.process_single_post(
-                    post_data, batch_job.campaign_id, batch_job.id,
-                    caption_semaphore, image_semaphore,
-                )
+                async with semaphore:
+                    # Pass the single DB session to the processing function
+                    await self.process_single_post(db, post_data, batch_job.campaign_id, batch_job.id)
 
-            print(f"Starting batch generation for {len(posts_data)} posts...")
+            print(f"Starting batch generation for {len(posts_data)} posts with a concurrency of {self.max_concurrent}...")
             await asyncio.gather(*[task_wrapper(post) for post in posts_data])
 
+            # Refresh the job object to get the final counts after all tasks are done
             db.refresh(batch_job)
 
             if batch_job.failed_posts > 0:
-                batch_job.status = "completed_w_errors"
+                batch_job.status = "completed_with_errors"
             else:
                 batch_job.status = "completed"
             batch_job.completed_at = datetime.now(timezone.utc)
@@ -130,4 +122,4 @@ class BatchGenerationService:
             print(f"Batch job {batch_job_id} completed. Success: {batch_job.completed_posts}, Failed: {batch_job.failed_posts}")
 
         finally:
-            db.close()
+            db.close() # IMPORTANT: Close the single session when the batch is finished
